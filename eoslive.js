@@ -8,9 +8,13 @@ const binanceRefresh = 10000;
 const crowdsaleRefresh = 2000;
 
 // const httpProviderUrl = 'https://mainnet.infura.io/';
-const httpProviderUrl = 'https://geth.cents.io/vitalik-te-iubeste';
-const httpProvider = new Web3.providers.HttpProvider(httpProviderUrl);
-const web3 = new Web3(httpProvider);
+// const httpProviderUrl = 'https://geth.cents.io/vitalik-te-iubeste';
+// const httpProviderUrl = 'http://eth.ldcore.com:8545/';
+// const httpProvider = new Web3.providers.HttpProvider(httpProviderUrl);
+
+const wsProviderUrl = 'ws://geth.cents.io:8546';
+const wsProvider = new Web3.providers.WebsocketProvider(wsProviderUrl);
+const web3 = new Web3(wsProvider);
 
 const eosAbi = JSON.parse(fs.readFileSync('./eosabi.json'));
 const eosAddr = "0xd0a6e6c54dbc68db5db3a091b171a77407ff7ccf";
@@ -23,6 +27,42 @@ const perDay = 2000000000000000000000000;
 const blockTimeMap = [];
 let blockTimeMapReady = false;
 let avgBlockTime;
+
+const pending = {};
+
+web3.eth.subscribe('pendingTransactions', handlePendingTransaction);
+web3.eth.subscribe('newBlockHeaders', handleNewBlock);
+buildBlockTimeMap(getYesterdaysTimestamp());
+setInterval(checkMarketPrice, binanceRefresh);
+
+async function handlePendingTransaction(err, res) {
+    if(err) {
+        return;
+    }
+
+    const trans = await web3.eth.getTransaction(res);
+    if(trans && trans.to === eosAddr) {
+        pending[res] = parseInt(trans.value);
+    }
+}
+
+async function handleNewBlock(err, res) {
+    if(err) {
+        return;
+    }
+
+    const block = await web3.eth.getBlock(res.number);
+    block.transactions.forEach(trans => {
+        delete pending[trans];
+    });
+
+    checkCrowdsalePrice();
+    checkReferencePrice();
+}
+
+function getPendingAmount() {
+    return _.sum(Object.values(pending));
+}
 
 async function buildBlockTimeMap(timestamp) {
     let currentBlock = await web3.eth.getBlockNumber();
@@ -159,7 +199,7 @@ async function checkCrowdsalePrice() {
         const { today, dailyTotals } = await getCrowdsalePrice();
         const currentCrowdsalePrice = dailyTotals / perDay;
 
-        if(currentCrowdsalePrice !== crowdsalePrice && crowdsalePrice < currentCrowdsalePrice) {
+        if(currentCrowdsalePrice !== crowdsalePrice /* && crowdsalePrice < currentCrowdsalePrice */) {
             crowdsalePrice = currentCrowdsalePrice;
             printData();
         }    
@@ -196,15 +236,13 @@ function getTimestamp() {
 }
 
 function printData() {
-    let diff = 0;
+    const potentialPrice = crowdsalePrice + getPendingAmount() / perDay;
+
+    let diff, pdiff = 0;
     if(marketPrice && crowdsalePrice) {
         diff = marketPrice * 100 / crowdsalePrice - 100;
+        pdiff = marketPrice * 100 / potentialPrice - 100;
     }
-    console.log(`${getTimestamp()} crowdsale #${today || '?'}: ${crowdsalePrice.toFixed(8) || '?'}, market: ${marketPrice || '?'}, profit%: ${diff.toFixed(2) || '?'}`);
+
+    console.log(`${getTimestamp()} crowdsale #${today || '?'}: ${crowdsalePrice.toFixed(8) || '?'} [~ ${potentialPrice.toFixed(8)}], market: ${marketPrice || '?'}, profit%: ${diff.toFixed(2) || '?'} [~ ${pdiff.toFixed(2) || '?'}]`);
 }
-
-buildBlockTimeMap(getYesterdaysTimestamp());
-
-setInterval(checkMarketPrice, binanceRefresh);
-setInterval(checkCrowdsalePrice, crowdsaleRefresh);
-setInterval(checkReferencePrice, crowdsaleRefresh);

@@ -57,7 +57,7 @@ async function handleNewBlock(err, res) {
     });
 
     checkCrowdsalePrice();
-    checkReferencePrice();
+    //checkReferencePrice();
 }
 
 function getPendingAmount() {
@@ -173,7 +173,7 @@ async function checkMarketPrice() {
         .then(entry => entry.price)
         .catch(e => console.log('error: could not fetch market price'));
 
-    if(currentMarketPrice !== marketPrice) {
+    if(currentMarketPrice && currentMarketPrice !== marketPrice) {
         marketPrice = currentMarketPrice;
         printData();
     }
@@ -236,7 +236,7 @@ function getTimestamp() {
 }
 
 function printData() {
-    const potentialPrice = crowdsalePrice + getPendingAmount() / perDay;
+    const potentialPrice = (crowdsalePrice + getPendingAmount() / perDay) || 0;
 
     let diff, pdiff = 0;
     if(marketPrice && crowdsalePrice) {
@@ -244,5 +244,5 @@ function printData() {
         pdiff = marketPrice * 100 / potentialPrice - 100;
     }
 
-    console.log(`${getTimestamp()} crowdsale #${today || '?'}: ${crowdsalePrice.toFixed(8) || '?'} [~ ${potentialPrice.toFixed(8)}], market: ${marketPrice || '?'}, profit%: ${diff.toFixed(2) || '?'} [~ ${pdiff.toFixed(2) || '?'}]`);
+    console.log(`${getTimestamp()} crowdsale #${today || '?'}: ${(crowdsalePrice || 0).toFixed(8) || '?'} [~ ${(potentialPrice || 0).toFixed(8)}], market: ${marketPrice || '?'}, profit%: ${diff.toFixed(2) || '?'} [~ ${pdiff.toFixed(2) || '?'}]`);
 }

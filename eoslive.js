@@ -2,6 +2,7 @@ const fs = require('fs');
 const Web3 = require('web3');
 const fetch = require('isomorphic-fetch');
 const _ = require('lodash');
+const colors = require('colors/safe');
 
 const binanceUrl = 'https://api.binance.com/api/v1/ticker/allPrices';
 const binanceDepthUrl = 'https://api.binance.com/api/v1/depth?symbol=EOSETH';
@@ -51,7 +52,7 @@ class EosLive {
         });
     
         const gasStats = this.getGasStats(block.transactions);
-        console.log(`block #${block.number} gas stats (gwei): ${gasStats.min} / ${gasStats.median} / ${gasStats.max}`);
+        console.log(`         block #${block.number} gas stats (gwei): ${gasStats.min} / ${gasStats.median} / ${gasStats.max}`);
 
         this.checkCrowdsalePrice();
         this.checkReferencePrice();
@@ -192,6 +193,7 @@ class EosLive {
             .catch(e => console.log('error: could not fetch market price'));
     
         if(currentMarketPrice !== this.marketPrice) {
+            this.previousMarketPrice = this.marketPrice || currentMarketPrice;
             this.marketPrice = currentMarketPrice;
             this.printData();
         }
@@ -218,6 +220,7 @@ class EosLive {
             const currentCrowdsalePrice = dailyTotals / this.perDay;
     
             if(currentCrowdsalePrice !== this.crowdsalePrice /* && crowdsalePrice < currentCrowdsalePrice */) {
+                this.previousCrowdsalePrice = this.crowdsalePrice || currentCrowdsalePrice;
                 this.crowdsalePrice = currentCrowdsalePrice;
                 this.printData();
             }    
@@ -242,7 +245,7 @@ class EosLive {
         if(this.blockTimeMapReady && (!this.prevEthContrib || this.prevEthContrib < ydayEthContrib)) {
             this.prevEthContrib = ydayEthContrib;
             const diff = (currEthContrib * 100 / ydayEthContrib).toFixed(2);
-            console.log(`curr: ${currEthContrib.toFixed(2)} eth, prev (${yesterdaysPrice.today}): ${ydayEthContrib.toFixed(2)} eth, diff% ${diff}`);
+            console.log(`         curr: ${currEthContrib.toFixed(2)} eth, prev (${yesterdaysPrice.today}): ${ydayEthContrib.toFixed(2)} eth, diff% ${diff}`);
         }
     }
 
@@ -270,8 +273,37 @@ class EosLive {
             strPotentialPrice = ` [~ ${(potentialPrice || 0).toFixed(8)}]`;
             strPotentialProfit = ` [~ ${pdiff.toFixed(2) || '?'}]`;
         }
+
+        let strCrowdsalePrice = (this.crowdsalePrice || 0).toFixed(8) || '?';
+        let strMarketPrice = this.marketPrice || '?';
+        let strProfit = diff.toFixed(2) || '?';
+
+        if(this.previousCrowdsalePrice) {
+            if(this.previousCrowdsalePrice < this.crowdsalePrice) {
+                strCrowdsalePrice = colors.red(strCrowdsalePrice);
+            } else if(this.previousCrowdsalePrice > this.crowdsalePrice) {
+                strCrowdsalePrice = colors.green(strCrowdsalePrice);
+            }
+        }
+
+        if(this.previousMarketPrice) {
+            if(this.previousMarketPrice < this.marketPrice) { 
+                strMarketPrice = colors.green(strMarketPrice);
+            } else if(this.previousMarketPrice > this.marketPrice) {
+                strMarketPrice = colors.red(strMarketPrice);
+            }
+        }
+
+        if(this.previousCrowdsalePrice || this.previousMarketPrice) {
+            let prevDiff = this.previousMarketPrice * 100 /  this.previousCrowdsalePrice - 100;
+            if(prevDiff > diff) {
+                strProfit = colors.red(strProfit);
+            } else if(prevDiff < diff) {
+                strProfit = colors.green(strProfit);
+            }
+        }
     
-        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${(this.crowdsalePrice || 0).toFixed(8) || '?'}${strPotentialPrice}, market: ${this.marketPrice || '?'}, profit%: ${diff.toFixed(2) || '?'}${strPotentialProfit}`);
+        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${strCrowdsalePrice}${strPotentialPrice}, market: ${strMarketPrice}, profit%: ${strProfit}${strPotentialProfit}`);
     }
 }
 

@@ -232,6 +232,7 @@ class EosLive {
     }
 
     printData() {
+        const pendingAmount = this.getPendingAmount();
         const potentialPrice = this.crowdsalePrice + this.getPendingAmount() / this.perDay;
     
         let diff = 0, pdiff = 0;
@@ -239,8 +240,14 @@ class EosLive {
             diff = this.marketPrice * 100 / this.crowdsalePrice - 100;
             pdiff = this.marketPrice * 100 / potentialPrice - 100;
         }
+
+        let strPotentialPrice = '', strPotentialProfit = '';
+        if(pendingAmount) {
+            strPotentialPrice = ` [~ ${(potentialPrice || 0).toFixed(8)}]`;
+            strPotentialProfit = ` [~ ${pdiff.toFixed(2) || '?'}]`;
+        }
     
-        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${(this.crowdsalePrice || 0).toFixed(8) || '?'} [~ ${(potentialPrice || 0).toFixed(8)}], market: ${this.marketPrice || '?'}, profit%: ${diff.toFixed(2) || '?'} [~ ${pdiff.toFixed(2) || '?'}]`);
+        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${(this.crowdsalePrice || 0).toFixed(8) || '?'}${strPotentialPrice}, market: ${this.marketPrice || '?'}, profit%: ${diff.toFixed(2) || '?'}${strPotentialProfit}`);
     }
 }
 

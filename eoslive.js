@@ -36,7 +36,7 @@ class EosLive {
     
         const trans = await this.web3.eth.getTransaction(res);
         if(trans && trans.to && trans.to.toLowerCase() === this.eosAddr.toLowerCase()) {
-            this.pending[res] = parseInt(trans.value);
+            this.pending[res.toLowerCase()] = parseInt(trans.value);
         }
     }
 
@@ -45,13 +45,37 @@ class EosLive {
             return;
         }
     
-        const block = await this.web3.eth.getBlock(res.number);
+        const block = await this.web3.eth.getBlock(res.number, true);
         block.transactions.forEach(trans => {
-            delete this.pending[trans];
+            delete this.pending[trans.hash.toLowerCase()];
         });
     
+        const gasStats = this.getGasStats(block.transactions);
+        console.log(`block #${block.number} gas stats (gwei): ${gasStats.min} / ${gasStats.median} / ${gasStats.max}`);
+
         this.checkCrowdsalePrice();
         this.checkReferencePrice();
+    }
+
+    getGasStats(transactions) {
+        const gasPrices = [];
+        transactions.forEach(t => gasPrices.push(parseInt(t.gasPrice) / 1000000000));
+        gasPrices.sort((a, b) => a - b);
+
+        const middle = Math.floor(gasPrices.length / 2);
+        let median;
+
+        if(gasPrices.length % 2) {
+            median = gasPrices[middle];
+        } else {
+            median = (gasPrices[middle-1] + gasPrices[middle]) / 2.0;
+        }
+
+        return {
+            min: _.head(gasPrices).toFixed(2),
+            median: median.toFixed(2), 
+            max: _.last(gasPrices).toFixed(2)
+        }
     }
 
     getPendingAmount() {

@@ -35,7 +35,7 @@ class EosLive {
         }
     
         const trans = await this.web3.eth.getTransaction(res);
-        if(trans && trans.to === this.eosAddr) {
+        if(trans && trans.to.toLowerCase() === this.eosAddr.toLowerCase()) {
             this.pending[res] = parseInt(trans.value);
         }
     }

@@ -4,6 +4,7 @@ const fetch = require('isomorphic-fetch');
 const _ = require('lodash');
 
 const binanceUrl = 'https://api.binance.com/api/v1/ticker/allPrices';
+const binanceDepthUrl = 'https://api.binance.com/api/v1/depth?symbol=EOSETH';
 const _wsProviderUrl = 'ws://geth.cents.io:8546';
 
 class EosLive {
@@ -92,7 +93,7 @@ class EosLive {
     
             // adjust (forward) if we've looked back too much (more than 10 minutes)
             if(this.blockTimeMap[lookBackBlockNumber] < timestamp - 600) {
-                lookBackBlockNumber += parseInt((timestamp - this.blockTimeMap[lookBackBlockNumber]) / avgBlockTime);
+                lookBackBlockNumber += parseInt((timestamp - this.blockTimeMap[lookBackBlockNumber]) / this.avgBlockTime);
                 continue;
             }
     

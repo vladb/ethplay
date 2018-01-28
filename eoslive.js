@@ -5,7 +5,7 @@ const _ = require('lodash');
 const colors = require('colors/safe');
 
 const binanceUrl = 'https://api.binance.com/api/v1/ticker/allPrices';
-const binanceDepthUrl = 'https://api.binance.com/api/v1/depth?symbol=EOSETH';
+const binanceDepthUrl = 'https://api.binance.com/api/v1/depth?symbol=EOSETH&limit=500';
 const _wsProviderUrl = 'ws://geth.cents.io:8546';
 
 class EosLive {
@@ -192,11 +192,29 @@ class EosLive {
             .then(entry => entry.price)
             .catch(e => console.log('error: could not fetch market price'));
 
+        this.currentMarketDepth = await this.checkDepthForPrice(parseFloat(this.crowdsalePrice));
+
         this.previousMarketPrice = this.marketPrice || currentMarketPrice;
         if(currentMarketPrice !== this.marketPrice) {
             this.marketPrice = currentMarketPrice;
             this.printData();
         }
+    }
+
+    async checkDepthForPrice(price) {
+        return await fetch(binanceDepthUrl)
+            .then(res => res.json())
+            .then(res => res.bids.reduce((a, v) => {
+                v[0] = parseFloat(v[0]);
+                v[1] = parseFloat(v[1]);
+
+                if(v[0] >= price) {
+                    a += v[0] * v[1];
+                }
+
+                return a;
+            }, 0))
+            .then(vol => vol.toFixed(0));
     }
 
     async getCrowdsalePrice(blockNumber = 'latest') {
@@ -303,7 +321,7 @@ class EosLive {
             }
         }
     
-        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${strCrowdsalePrice}${strPotentialPrice}, market: ${strMarketPrice}, profit%: ${strProfit}${strPotentialProfit}`);
+        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${strCrowdsalePrice}${strPotentialPrice}, market: ${strMarketPrice} (${this.currentMarketDepth} eth), profit%: ${strProfit}${strPotentialProfit}`);
     }
 }
 

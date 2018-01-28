@@ -52,7 +52,7 @@ class EosLive {
         });
     
         const gasStats = this.getGasStats(block.transactions);
-        console.log(`         block #${block.number} gas stats (gwei): ${gasStats.min} / ${gasStats.median} / ${gasStats.max}`);
+        console.log(colors.gray(`         block #${block.number} gas stats (gwei): ${gasStats.min} / ${gasStats.median} / ${gasStats.max}`));
 
         this.checkCrowdsalePrice();
         this.checkReferencePrice();
@@ -191,9 +191,9 @@ class EosLive {
             .then(market => market.find((entry) => entry.symbol === 'EOSETH'))
             .then(entry => entry.price)
             .catch(e => console.log('error: could not fetch market price'));
-    
+
+        this.previousMarketPrice = this.marketPrice || currentMarketPrice;
         if(currentMarketPrice !== this.marketPrice) {
-            this.previousMarketPrice = this.marketPrice || currentMarketPrice;
             this.marketPrice = currentMarketPrice;
             this.printData();
         }
@@ -218,9 +218,9 @@ class EosLive {
         try {
             const { today, dailyTotals } = await this.getCrowdsalePrice();
             const currentCrowdsalePrice = dailyTotals / this.perDay;
-    
+
+            this.previousCrowdsalePrice = this.crowdsalePrice || currentCrowdsalePrice;
             if(currentCrowdsalePrice !== this.crowdsalePrice /* && crowdsalePrice < currentCrowdsalePrice */) {
-                this.previousCrowdsalePrice = this.crowdsalePrice || currentCrowdsalePrice;
                 this.crowdsalePrice = currentCrowdsalePrice;
                 this.printData();
             }    
@@ -245,7 +245,7 @@ class EosLive {
         if(this.blockTimeMapReady && (!this.prevEthContrib || this.prevEthContrib < ydayEthContrib)) {
             this.prevEthContrib = ydayEthContrib;
             const diff = (currEthContrib * 100 / ydayEthContrib).toFixed(2);
-            console.log(`         curr: ${currEthContrib.toFixed(2)} eth, prev (${yesterdaysPrice.today}): ${ydayEthContrib.toFixed(2)} eth, diff% ${diff}`);
+            console.log(colors.gray(`         curr: ${currEthContrib.toFixed(2)} eth, prev (${yesterdaysPrice.today}): ${ydayEthContrib.toFixed(2)} eth, diff% ${diff}`));
         }
     }
 

@@ -321,7 +321,7 @@ class EosLive {
             }
         }
     
-        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${strCrowdsalePrice}${strPotentialPrice}, market: ${strMarketPrice} (${this.currentMarketDepth} eth), profit%: ${strProfit}${strPotentialProfit}`);
+        console.log(`${this.getTimestamp()} crowdsale #${this.today || '?'}: ${strCrowdsalePrice}${strPotentialPrice}, vol: ${this.currentMarketDepth || '?'} eth, market: ${strMarketPrice}, profit%: ${strProfit}${strPotentialProfit}`);
     }
 }
 

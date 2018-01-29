@@ -230,7 +230,7 @@ class EosLive {
     
         // only overwrite the global with the latest block's "today"
         if(blockNumber == 'latest' && this.today !== thisDay) {
-            console.log(colors.inverse(`Active period: #${thisDay}`));
+            console.log(`${colors.cyan('   INFO:')} Active period: #${thisDay}`);
             this.today = thisDay;
         }
     

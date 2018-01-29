@@ -229,7 +229,8 @@ class EosLive {
         const dailyTotals = await this.eos.methods.dailyTotals(thisDay).call({}, blockNumber);
     
         // only overwrite the global with the latest block's "today"
-        if(blockNumber == 'latest') {
+        if(blockNumber == 'latest' && this.today !== thisDay) {
+            console.log(colors.inverse(`Active period: #${thisDay}`));
             this.today = thisDay;
         }
     

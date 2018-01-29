@@ -50,6 +50,10 @@ class EosLive {
         block.transactions.forEach(trans => {
             delete this.pending[trans.hash.toLowerCase()];
         });
+
+        if(block.timestamp < this.getUTCTimestamp() - 120) {
+            console.log(`${colors.yellow('WARNING:')} Block timestamp older than 2 minutes. Check node.`);
+        }
     
         const gasStats = this.getGasStats(block.transactions);
         console.log(colors.gray(`         block #${block.number} gas stats (gwei): ${gasStats.min} / ${gasStats.median} / ${gasStats.max}`));
@@ -152,13 +156,16 @@ class EosLive {
         return this.blockTimeMap[blockNumber];
     }
 
-    getYesterdaysTimestamp() {
+    getUTCTimestamp() {
         const now = new Date;
-        const currentTimestamp = parseInt(
+        return parseInt(
             Date.UTC(now.getUTCFullYear(),now.getUTCMonth(), now.getUTCDate(), 
             now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds(),
             now.getUTCMilliseconds()) / 1000);
-        return currentTimestamp - 23 * 3600;
+    }
+
+    getYesterdaysTimestamp() {
+        return this.getUTCTimestamp() - 23 * 3600;
     }
 
     findClosestBlock(timestamp) {

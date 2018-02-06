@@ -16,6 +16,7 @@ class EosLive {
         this.blockTimeMapReady = false;
         this.pending = {};
         this.marketPrice = 0;
+        this.ydayMarketPrice = 0;
         this.today = 0;
         this.crowdsalePrice = 0;
 
@@ -27,7 +28,8 @@ class EosLive {
         this.web3.eth.subscribe('pendingTransactions', (err, res) => this.handlePendingTransaction(err, res));
         this.web3.eth.subscribe('newBlockHeaders', (err, res) => this.handleNewBlock(err, res));
         this.buildBlockTimeMap(this.getYesterdaysTimestamp());
-        setInterval(() => this.checkMarketPrice(), 10000);
+        setInterval(() => this.checkMarketPrice(), 5000);
+        setInterval(() => this.checkHistoricalPrice(), 5000);
     }
 
     async handlePendingTransaction(err, res) {
@@ -208,6 +210,26 @@ class EosLive {
         }
     }
 
+    async checkHistoricalPrice() {
+        const serverTime = await fetch('https://api.binance.com/api/v1/time')
+            .then(res => res.json())
+            .then(res => res.serverTime);
+
+        const startTime = serverTime - 23*3600*1000;
+        const endTime = startTime + 2.5*60*1000;
+
+        const histData = await fetch(`https://api.binance.com/api/v1/aggTrades?symbol=EOSETH&startTime=${startTime}&endTime=${endTime}`)
+            .then(res => res.json());
+
+        const histStats = histData.reduce((a, c) => {
+            a.total += parseFloat(c.p) * parseFloat(c.q);
+            a.q += parseFloat(c.q);
+            return a;
+        }, { total: 0, q: 0 });
+
+        this.ydayMarketPrice = histStats.total / histStats.q;
+    }
+
     async checkDepthForPrice(price) {
         return await fetch(binanceDepthUrl)
             .then(res => res.json())
@@ -265,13 +287,21 @@ class EosLive {
         }
     
         const yesterdaysPrice = await this.getCrowdsalePrice(closestBlock);
-        const currEthContrib = this.crowdsalePrice * this.perDay / 1000000000000000000;
         const ydayEthContrib = yesterdaysPrice.dailyTotals / 1000000000000000000;
+
+        const currEthContrib = this.crowdsalePrice * this.perDay / 1000000000000000000;
     
         if(this.blockTimeMapReady && (!this.prevEthContrib || this.prevEthContrib < ydayEthContrib)) {
             this.prevEthContrib = ydayEthContrib;
             const diff = (currEthContrib * 100 / ydayEthContrib).toFixed(2);
-            console.log(colors.gray(`         curr: ${currEthContrib.toFixed(2)} eth, prev (${yesterdaysPrice.today}): ${ydayEthContrib.toFixed(2)} eth, diff% ${diff}`));
+
+            let diffMkt = '?';
+            if(this.marketPrice && this.ydayMarketPrice) {
+                diffMkt = (this.marketPrice * 100 / this.ydayMarketPrice).toFixed(2);
+            }
+            
+
+            console.log(colors.gray(`         curr: ${currEthContrib.toFixed(2)} eth, prev (${yesterdaysPrice.today}): ${ydayEthContrib.toFixed(2)} eth, diff% ${diff}, diffMkt%: ${diffMkt}`));
         }
     }
 

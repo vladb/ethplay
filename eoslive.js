@@ -4,9 +4,9 @@ const fetch = require('isomorphic-fetch');
 const _ = require('lodash');
 const colors = require('colors/safe');
 
-const binanceUrl = 'https://api.binance.com/api/v1/ticker/allPrices';
-const binanceDepthUrl = 'https://api.binance.com/api/v1/depth?symbol=EOSETH&limit=500';
-const _wsProviderUrl = 'ws://geth.cents.io:8546';
+const BinanceProvider = require('./binance.provider');
+const KrakenProvider = require('./kraken.provider');
+const config = require('./config');
 
 class EosLive {
     constructor(wsProviderUrl) {
@@ -20,6 +20,12 @@ class EosLive {
         this.today = 0;
         this.crowdsalePrice = 0;
 
+        this.marketProviders = [
+            new BinanceProvider(),
+            new KrakenProvider()
+        ];
+        this.marketData = {};
+
         const wsProvider = new Web3.providers.WebsocketProvider(wsProviderUrl);
         const eosAbi = JSON.parse(fs.readFileSync('./eosabi.json'));
         this.web3 = new Web3(wsProvider);
@@ -28,8 +34,23 @@ class EosLive {
         this.web3.eth.subscribe('pendingTransactions', (err, res) => this.handlePendingTransaction(err, res));
         this.web3.eth.subscribe('newBlockHeaders', (err, res) => this.handleNewBlock(err, res));
         this.buildBlockTimeMap(this.getYesterdaysTimestamp());
-        setInterval(() => this.checkMarketPrice(), 5000);
-        setInterval(() => this.checkHistoricalPrice(), 5000);
+
+        // setInterval(() => this.checkMarketPrice(), 5000);
+        // setInterval(() => this.checkHistoricalPrice(), 5000);
+
+        this.marketProviders.forEach(marketProvider => {
+            setInterval(async () => {
+                const providerData = await marketProvider.watch();
+                const { providerName } = providerData;
+                
+                this.marketData[providerName] = this.marketData[providerName] || []
+                this.marketData[providerName].push(providerData);
+            }, 5000);
+        })
+    }
+
+    addMarketProvider(provider) {
+        this.providers.push(provider);
     }
 
     async handlePendingTransaction(err, res) {
@@ -194,22 +215,6 @@ class EosLive {
         return closest.blockNumber;
     }
 
-    async checkMarketPrice() {
-        const currentMarketPrice = await fetch(binanceUrl)
-            .then(res => res.json())
-            .then(market => market.find((entry) => entry.symbol === 'EOSETH'))
-            .then(entry => entry.price)
-            .catch(e => console.log('error: could not fetch market price'));
-
-        this.currentMarketDepth = await this.checkDepthForPrice(parseFloat(this.crowdsalePrice));
-
-        this.previousMarketPrice = this.marketPrice || currentMarketPrice;
-        if(currentMarketPrice !== this.marketPrice) {
-            this.marketPrice = currentMarketPrice;
-            this.printData();
-        }
-    }
-
     async checkHistoricalPrice() {
         const serverTime = await fetch('https://api.binance.com/api/v1/time')
             .then(res => res.json())
@@ -228,22 +233,6 @@ class EosLive {
         }, { total: 0, q: 0 });
 
         this.ydayMarketPrice = histStats.total / histStats.q;
-    }
-
-    async checkDepthForPrice(price) {
-        return await fetch(binanceDepthUrl)
-            .then(res => res.json())
-            .then(res => res.bids.reduce((a, v) => {
-                v[0] = parseFloat(v[0]);
-                v[1] = parseFloat(v[1]);
-
-                if(v[0] >= price) {
-                    a += v[0] * v[1];
-                }
-
-                return a;
-            }, 0))
-            .then(vol => vol.toFixed(0));
     }
 
     async getCrowdsalePrice(blockNumber = 'latest') {
@@ -372,4 +361,4 @@ class EosLive {
     }
 }
 
-new EosLive(_wsProviderUrl);
+new EosLive(config.wsProviderUrl);
